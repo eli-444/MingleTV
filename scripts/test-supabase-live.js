@@ -65,16 +65,18 @@ try {
   const admin = await (await browser.newContext()).newPage();
   await admin.goto(origin + '/admin'); await admin.locator('#password').fill(password);
   await admin.locator('#login button').click(); await admin.locator('#dashboard').waitFor();
+  await admin.getByRole('link', { name: 'Reports', exact: true }).click();
   await admin.locator(`[data-report-id="${reportId}"]`).waitFor();
   assert.ok(await admin.locator('#monthly tr').count());
   await admin.reload(); await admin.locator('#dashboard').waitFor();
   stage = 'bannissement et déblocage';
-  admin.once('dialog', dialog => dialog.accept());
   testBan = true;
   await admin.locator(`[data-report-id="${reportId}"]`).getByRole('button', { name: 'Ban this IP' }).click();
+  await admin.locator('#confirmDialog').getByRole('button', { name: 'Confirm', exact: true }).click();
   for (const page of [c, d]) await page.waitForFunction(() => document.getElementById('error').textContent.includes('suspended'), null, { timeout: 15000 });
   // The former partner is now idle: its next heartbeat is at most 25s away.
   await b.waitForFunction(() => document.getElementById('error').textContent.includes('suspended'), null, { timeout: 35000 });
+  await admin.getByRole('link', { name: 'IP bans', exact: true }).click();
   const ban = admin.locator('#bans .ban').filter({ hasText: '127.0.0.1' });
   await ban.getByRole('button', { name: 'Unban' }).click();
   await ban.waitFor({ state: 'detached' }); testBan = false;

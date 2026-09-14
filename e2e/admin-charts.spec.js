@@ -39,7 +39,9 @@ for (const [season, generatedAt, expectedRange] of [
       await expect(page.locator('#trafficRange')).toContainText('12:05 – 12:34 · UTC');
       await page.locator('#activityMetric').selectOption('matches');
       await expect(page.locator('#activityChart .chart-target').last()).toHaveAttribute('aria-label', /26 matches/);
+      await page.getByRole('link', { name: 'Settings', exact: true }).click();
       await page.locator('#operator').fill('Unsaved draft');
+      await page.getByRole('link', { name: 'Overview', exact: true }).click();
       data.online.connected = 43;
       await expect(page.locator('#live .card').filter({ hasText: 'People online' }).locator('strong')).toHaveText('43', { timeout: 12000 });
       await expect(page.locator('#operator')).toHaveValue('Unsaved draft');
