@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /admin
+Disallow: /gestion-
+Disallow: /health
+
+Sitemap: https://www.mingletv.app/sitemap.xml

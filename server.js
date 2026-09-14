@@ -28,6 +28,8 @@ export function createApp(env = process.env) {
   });
   const files = { '/': ['index.html', 'text/html'], '/app.js': ['app.js', 'text/javascript'], '/privacy.js': ['privacy.js', 'text/javascript'], '/style.css': ['style.css', 'text/css'], '/favicon.svg': ['favicon.svg', 'image/svg+xml'] };
   for (const name of ['config', 'legal']) files[`/${name}.js`] = [`${name}.js`, 'text/javascript'];
+  files['/robots.txt'] = ['robots.txt', 'text/plain'];
+  files['/sitemap.xml'] = ['sitemap.xml', 'application/xml'];
   for (const name of ['terms', 'privacy', 'rules']) { files[`/${name}`] = [`${name}.html`, 'text/html']; files[`/${name}.html`] = files[`/${name}`]; }
   if (management.enabled) {
     files[management.adminPath] = ['admin.html', 'text/html'];
