@@ -43,9 +43,9 @@ test('admin statistics refresh without overwriting unsaved settings', async ({ p
   await page.goto(adminPath); await page.locator('#password').fill('test-password-only'); await page.locator('#login button').click();
   await expect(page.locator('#dashboard')).toBeVisible();
   await page.locator('#operator').fill('Saisie à conserver');
-  const card = page.locator('#live .card').filter({ hasText: 'Online connections' }).locator('strong');
+  const card = page.locator('#live .card').filter({ hasText: 'People online' }).locator('strong');
   const before = Number(await card.textContent());
-  const visitor = await context.newPage(); await visitor.goto('/'); await expect(visitor.locator('#start')).toBeEnabled();
+  const visitor = await context.newPage(); await visitor.goto('/'); await visitor.locator('#adultConfirmed').check(); await visitor.locator('#ageContinue').click(); await expect(visitor.locator('#start')).toBeEnabled();
   await page.bringToFront();
   await expect(card).toHaveText(String(before + 1), { timeout: 12000 });
   await expect(page.locator('#operator')).toHaveValue('Saisie à conserver');

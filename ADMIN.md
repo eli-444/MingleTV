@@ -1,5 +1,15 @@
 # Administration Mingle TV
 
+## Tableau de bord visuel
+
+Le fond noir et les couleurs différenciées distinguent les visites, sessions et signalements. Les nombres utilisent des chiffres de largeur fixe. Les graphiques sont en SVG, sans bibliothèque ni police chargée depuis un service tiers.
+
+Le graphique temps réel représente exactement **30 minutes consécutives**, y compris celles à zéro visite. Il est ancré sur l’heure renvoyée par l’API plutôt que sur la dernière minute ayant reçu une visite. L’heure affichée est **Europe/Paris** par défaut (avec changement été/hiver automatique) ; le sélecteur permet UTC et mémorise ce choix dans le navigateur. La minute en cours est partielle. Les données restent datées de leur dernière récupération lorsqu’une actualisation échoue.
+
+Le choix Curve/Bars, le survol et le focus clavier donnent accès aux valeurs. Le graphique journalier permet de choisir pages vues, connexions ou associations. Les totaux journaliers et mensuels restent en **UTC** ; changer le fuseau d’affichage de la courbe ne recalcule pas ces agrégats. Le camembert indique la part des visites dans les pays affichés sur 30 jours, hors localisation inconnue ; il ne représente pas les utilisateurs actuellement en ligne.
+
+Le serveur historique SQLite n’expose pas les visites par minute : le panel affiche une indisponibilité explicite pour cette courbe, sans inventer une activité nulle. Aucun changement de migration Supabase n’est nécessaire pour cette présentation.
+
 ## Accès
 
 - En production : **https://adminsecret.mingletv.app**, après configuration de ce domaine dans Vercel et dans le DNS.

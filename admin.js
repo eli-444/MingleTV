@@ -52,7 +52,7 @@ export function createManagement(env, online) {
   function metrics() {
     const current = online(), today = new Date().toISOString().slice(0, 10);
     if (current.connected) recordPeak(current.connected);
-    return { online: current, today: db.prepare('SELECT * FROM daily WHERE date=?').get(today) || { date: today, pageviews: 0, connections: 0, peak: 0, matches: 0, reports: 0 },
+    return { generatedAt: new Date().toISOString(), online: current, today: db.prepare('SELECT * FROM daily WHERE date=?').get(today) || { date: today, pageviews: 0, connections: 0, peak: 0, matches: 0, reports: 0 },
       monthly: db.prepare(`SELECT substr(date,1,7) AS month, SUM(pageviews) AS pageviews, SUM(connections) AS connections, MAX(peak) AS peak, SUM(matches) AS matches, SUM(reports) AS reports, (SELECT COUNT(*) FROM visitors v WHERE v.month=substr(d.date,1,7)) AS visitors FROM daily d GROUP BY month ORDER BY month DESC LIMIT 13`).all(),
       daily: db.prepare('SELECT * FROM daily ORDER BY date DESC LIMIT 31').all() };
   }
