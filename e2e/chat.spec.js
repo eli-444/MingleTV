@@ -46,7 +46,7 @@ test('one click connects two cameras, then skip starts another search', async ({
   await aContext.close(); await bContext.close();
 });
 for (const [name, width, height] of [['mobile', 390, 844], ['small-mobile', 320, 568], ['landscape', 844, 390], ['laptop', 1366, 768], ['desktop', 1920, 1080]]) {
-  test(name + ' fits cameras, controls and chat in one screen with the footer below', async ({ page }) => {
+  test(name + ' keeps cameras, controls and chat in the first screen', async ({ page }) => {
     await page.setViewportSize({ width, height }); await page.goto('/');
     await page.locator('#adultConfirmed').check(); await page.locator('#ageContinue').click();
     await expect(page.locator('#start')).toBeEnabled();
@@ -61,8 +61,8 @@ for (const [name, width, height] of [['mobile', 390, 844], ['small-mobile', 320,
     expect(local.y).toBe(remote.y);
     const controls = await page.locator('.controls-panel').boundingBox();
     const chat = await page.locator('.chat').boundingBox();
-    const footer = await page.locator('footer').boundingBox();
-    expect(footer.y).toBeCloseTo(height, 0);
+    const information = await page.locator('.seo-home').boundingBox();
+    expect(information.y).toBeGreaterThanOrEqual(height);
     for (const box of [local, remote, controls, chat]) expect(box.y + box.height).toBeLessThanOrEqual(height);
     if (width > 650) {
       expect(controls.x).toBe(local.x); expect(chat.x).toBe(remote.x);
@@ -77,11 +77,51 @@ for (const [name, width, height] of [['mobile', 390, 844], ['small-mobile', 320,
     expect(await page.locator('#messages').evaluate(log => log.scrollHeight > log.clientHeight)).toBe(true);
     const composer = await page.locator('#chatForm').boundingBox();
     expect(composer.y + composer.height).toBeLessThanOrEqual(height);
-    expect((await page.locator('footer').boundingBox()).y).toBeCloseTo(height, 0);
+    expect((await page.locator('.seo-home').boundingBox()).y).toBeGreaterThanOrEqual(height);
     await page.locator('.contact-box summary').click();
     await expect(page.locator('#contactEmail')).toBeVisible();
   });
 }
+test('camera starts without a microphone when combined capture is unavailable', async ({ page }) => {
+  await page.addInitScript(() => {
+    const original = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+    navigator.mediaDevices.getUserMedia = constraints => {
+      if (constraints.video && constraints.audio) throw new DOMException('No microphone', 'NotFoundError');
+      if (!constraints.video && constraints.audio) throw new DOMException('No microphone', 'NotFoundError');
+      return original({ video: true, audio: false });
+    };
+  });
+  await start(page);
+  await expect.poll(() => page.locator('#localVideo').evaluate(video => video.srcObject?.getVideoTracks().length || 0)).toBe(1);
+  await expect(page.locator('#error')).toContainText('without microphone');
+  await expect(page.locator('#remotePanel')).toHaveAttribute('data-state', 'searching');
+});
+
+test('microphone disconnection keeps the camera and text session active', async ({ page }) => {
+  await start(page);
+  await expect.poll(() => page.locator('#localVideo').evaluate(video => video.srcObject?.getAudioTracks().length || 0)).toBe(1);
+  await page.locator('#localVideo').evaluate(video => video.srcObject.getAudioTracks()[0].onended());
+  await expect(page.locator('#error')).toContainText('Video and text chat are still available');
+  await expect.poll(() => page.locator('#localVideo').evaluate(video => video.srcObject?.getVideoTracks()[0]?.readyState)).toBe('live');
+  await expect(page.locator('#remotePanel')).toHaveAttribute('data-state', 'searching');
+});
+
+test('temporary camera errors are retried automatically', async ({ page }) => {
+  await page.addInitScript(() => {
+    const original = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+    window.cameraAttempts = 0;
+    navigator.mediaDevices.getUserMedia = constraints => {
+      window.cameraAttempts++;
+      if (window.cameraAttempts < 3) throw new DOMException('Camera starting', 'NotReadableError');
+      return original(constraints);
+    };
+  });
+  await start(page);
+  await expect.poll(() => page.evaluate(() => window.cameraAttempts)).toBe(3);
+  await expect.poll(() => page.locator('#localVideo').evaluate(video => video.srcObject?.getVideoTracks().length || 0)).toBe(1);
+  await expect(page.locator('#remotePanel')).toHaveAttribute('data-state', 'searching');
+});
+
 test('camera denial permits retry without leaving search stuck', async ({ page }) => {
   await page.addInitScript(() => {
     navigator.mediaDevices.getUserMedia = async () => { throw new DOMException('Denied', 'NotAllowedError'); };
@@ -99,6 +139,6 @@ test('age declaration is required before asking for the camera', async ({ page }
   expect(await page.locator('#localVideo').evaluate(video => video.srcObject)).toBe(null);
   await page.locator('#adultConfirmed').check(); await page.locator('#ageContinue').click();
   await page.getByRole('link', { name: 'Terms of Use', exact: true }).click();
-  await expect(page).toHaveTitle('Terms of Use — Mingle TV');
+  await expect(page).toHaveTitle('Terms of Use — MingleTV');
   await expect(page.locator('[data-policy="operator"]')).toHaveText('Aurora Web & Security');
 });

@@ -36,17 +36,53 @@ function stop() {
   stream?.getTracks().forEach(t => t.stop()); stream = null; $('localVideo').srcObject = null;
   $('localPlaceholder').hidden = false; state('idle', 'Camera stopped'); controls();
 }
+const wait = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
+async function requestCamera(constraints) {
+  let lastError;
+  for (const delay of [0, 250, 750]) {
+    if (delay) await wait(delay);
+    try { return await navigator.mediaDevices.getUserMedia(constraints); }
+    catch (error) {
+      lastError = error;
+      if (!['NotReadableError', 'AbortError'].includes(error.name)) throw error;
+    }
+  }
+  throw lastError;
+}
+async function acquireMedia() {
+  if (!navigator.mediaDevices?.getUserMedia) throw new Error('The camera requires an HTTPS connection.');
+  const video = { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' };
+  const audio = { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
+  try {
+    return { stream: await requestCamera({ video, audio }), warning: '' };
+  } catch (combinedError) {
+    if (combinedError.name === 'NotAllowedError' || combinedError.name === 'SecurityError') throw combinedError;
+    let camera;
+    try { camera = await requestCamera({ video: true, audio: false }); }
+    catch (cameraError) { throw cameraError.name === 'NotFoundError' ? combinedError : cameraError; }
+    try {
+      const microphone = await navigator.mediaDevices.getUserMedia({ video: false, audio });
+      for (const track of microphone.getAudioTracks()) camera.addTrack(track);
+      return { stream: camera, warning: '' };
+    } catch {
+      return { stream: camera, warning: 'Camera connected without microphone. Check microphone access if you want to speak.' };
+    }
+  }
+}
 async function begin() {
   if (busy || !config) return;
   if (!$('adultConfirmed').checked) { error('Confirm that you are at least 18 and accept the terms and rules.'); $('adultConfirmed').focus(); return; }
   busy = true; const token = ++epoch; error(); controls();
   try {
     if (!stream) {
-      if (!navigator.mediaDevices?.getUserMedia) throw new Error('The camera requires an HTTPS connection.');
-      const acquired = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' }, audio: { echoCancellation: true, noiseSuppression: true } });
+      const result = await acquireMedia();
+      const acquired = result.stream;
       if (token !== epoch) { acquired.getTracks().forEach(t => t.stop()); return; }
       stream = acquired; $('localVideo').srcObject = stream; $('localPlaceholder').hidden = true;
-      for (const track of stream.getTracks()) track.onended = () => { stop(); error('Camera or microphone disconnected.'); };
+      $('localVideo').play().catch(() => {});
+      for (const track of stream.getVideoTracks()) track.onended = () => { stop(); error('Camera disconnected. Check the device, then try again.'); };
+      for (const track of stream.getAudioTracks()) track.onended = () => { if (stream?.getVideoTracks().some(item => item.readyState === 'live')) error('Microphone disconnected. Video and text chat are still available.'); };
+      if (result.warning) error(result.warning);
     }
     if (token !== epoch) return;
     send({ type: 'leave' }); closePeer(); active = true;
@@ -55,7 +91,7 @@ async function begin() {
   } catch (e) {
     if (token !== epoch) return;
     stop();
-    error(({ NotAllowedError: 'Allow camera and microphone access to search.', NotFoundError: 'No camera or microphone detected.', NotReadableError: 'Camera or microphone unavailable.' })[e.name] || e.message);
+    error(({ NotAllowedError: 'Camera access was blocked. Allow it in your browser settings, then try again.', SecurityError: 'Camera access is blocked by the browser or device settings.', NotFoundError: 'No camera was detected.', NotReadableError: 'The camera is busy or unavailable. Close other camera apps, then try again.', AbortError: 'The camera did not start. Try again.' })[e.name] || e.message);
   } finally { if (token === epoch) { busy = false; controls(); } }
 }
 async function matched(m) {
